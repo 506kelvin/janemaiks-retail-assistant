@@ -1,0 +1,276 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply text-dark-text dark:text-dark-text bg-gray-50 dark:bg-dark-bg;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  ::selection {
+    @apply bg-primary-500/20 text-primary-700 dark:text-primary-200;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-primary-500;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 dark:bg-gray-600 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400 dark:bg-gray-500;
+  }
+}
+
+@layer components {
+  /* === BUTTONS === */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm
+           transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
+           disabled:opacity-50 disabled:cursor-not-allowed select-none;
+  }
+  .btn-primary {
+    @apply btn bg-primary-500 text-white hover:bg-primary-600 active:bg-primary-700
+           shadow-sm hover:shadow-md focus-visible:ring-primary-500;
+  }
+  .btn-secondary {
+    @apply btn bg-white dark:bg-dark-card text-gray-700 dark:text-dark-text
+           border border-gray-200 dark:border-dark-border
+           hover:bg-gray-50 dark:hover:bg-dark-surface hover:border-gray-300 dark:hover:border-gray-600
+           shadow-sm focus-visible:ring-gray-400;
+  }
+  .btn-danger {
+    @apply btn bg-status-low text-white hover:bg-red-700 active:bg-red-800
+           shadow-sm hover:shadow-md focus-visible:ring-status-low;
+  }
+  .btn-success {
+    @apply btn bg-status-success text-white hover:bg-green-700 active:bg-green-800
+           shadow-sm hover:shadow-md focus-visible:ring-status-success;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-gray-600 dark:text-gray-400
+           hover:bg-gray-100 dark:hover:bg-dark-surface hover:text-gray-900 dark:hover:text-dark-text;
+  }
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs rounded-lg;
+  }
+  .btn-lg {
+    @apply px-6 py-3 text-base;
+  }
+  .btn-icon {
+    @apply p-2 rounded-lg;
+  }
+
+  /* === CARDS === */
+  .card {
+    @apply bg-white dark:bg-dark-card rounded-2xl border border-gray-100 dark:border-dark-border
+           shadow-card p-6 transition-all duration-200;
+  }
+  .card-hover {
+    @apply card hover:shadow-card-hover hover:border-gray-200 dark:hover:border-gray-600;
+  }
+  .card-glass {
+    @apply bg-white/80 dark:bg-dark-card/80 backdrop-blur-xl rounded-2xl border border-white/20 dark:border-dark-border/50
+           shadow-glass;
+  }
+  .card-elevated {
+    @apply card shadow-elevated;
+  }
+
+  /* === INPUTS === */
+  .input-field {
+    @apply w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-dark-border
+           bg-white dark:bg-dark-surface text-gray-900 dark:text-dark-text
+           placeholder:text-gray-400 dark:placeholder:text-gray-500
+           transition-all duration-200
+           focus:border-primary-500 dark:focus:border-primary-400
+           focus:ring-2 focus:ring-primary-500/20 dark:focus:ring-primary-400/20
+           focus:outline-none
+           disabled:opacity-50 disabled:cursor-not-allowed
+           disabled:bg-gray-50 dark:disabled:bg-dark-surface/50;
+  }
+  .input-error {
+    @apply border-status-low focus:border-status-low focus:ring-status-low/20;
+  }
+  .input-success {
+    @apply border-status-success focus:border-status-success focus:ring-status-success/20;
+  }
+  .input-label {
+    @apply block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5;
+  }
+  .input-helper {
+    @apply text-xs text-gray-400 dark:text-gray-500 mt-1;
+  }
+  .input-error-text {
+    @apply text-xs text-status-low mt-1;
+  }
+
+  /* === BADGES === */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  .badge-low {
+    @apply badge bg-status-low/10 text-status-low;
+  }
+  .badge-warning {
+    @apply badge bg-status-warning/15 text-yellow-800 dark:text-yellow-300;
+  }
+  .badge-success {
+    @apply badge bg-status-success/10 text-status-success;
+  }
+  .badge-primary {
+    @apply badge bg-primary-50 dark:bg-primary-500/10 text-primary-700 dark:text-primary-300;
+  }
+  .badge-secondary {
+    @apply badge bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300;
+  }
+
+  /* === TABLES === */
+  .table-container {
+    @apply w-full overflow-x-auto rounded-2xl border border-gray-100 dark:border-dark-border
+           bg-white dark:bg-dark-card shadow-card;
+  }
+  .table-header {
+    @apply px-4 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider;
+  }
+  .table-cell {
+    @apply px-4 py-3.5 text-sm text-gray-700 dark:text-gray-200;
+  }
+  .table-row {
+    @apply border-b border-gray-50 dark:border-dark-border/50 transition-colors duration-150
+           hover:bg-gray-50 dark:hover:bg-dark-surface/50;
+  }
+
+  /* === STATS === */
+  .stat-card {
+    @apply card p-5 relative overflow-hidden;
+  }
+  .stat-label {
+    @apply text-sm font-medium text-gray-500 dark:text-gray-400;
+  }
+  .stat-value {
+    @apply text-2xl font-bold text-gray-900 dark:text-dark-text mt-1;
+  }
+  .stat-trend {
+    @apply text-xs font-medium mt-1;
+  }
+  .stat-icon {
+    @apply p-2.5 rounded-xl;
+  }
+
+  /* === SKELETON === */
+  .skeleton {
+    @apply bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse;
+  }
+
+  /* === TIMELINE === */
+  .timeline {
+    @apply relative;
+  }
+  .timeline-item {
+    @apply relative pl-8 pb-5 border-l-2 border-gray-100 dark:border-dark-border last:pb-0;
+  }
+  .timeline-dot {
+    @apply absolute -left-[9px] top-0 w-4 h-4 rounded-full border-2 border-white dark:border-dark-card;
+  }
+  .timeline-time {
+    @apply text-xs text-gray-400 dark:text-gray-500;
+  }
+  .timeline-content {
+    @apply text-sm text-gray-700 dark:text-gray-200;
+  }
+
+  /* === DIVIDER === */
+  .divider {
+    @apply w-full h-px bg-gray-100 dark:bg-dark-border my-6;
+  }
+
+  /* === SECTION === */
+  .section-header {
+    @apply flex items-center justify-between mb-6;
+  }
+  .section-title {
+    @apply text-lg font-semibold text-gray-900 dark:text-dark-text;
+  }
+  .section-subtitle {
+    @apply text-sm text-gray-500 dark:text-gray-400 mt-0.5;
+  }
+
+  /* === NAV === */
+  .nav-link {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
+           transition-all duration-200
+           text-gray-500 dark:text-gray-400
+           hover:text-gray-900 dark:hover:text-dark-text
+           hover:bg-gray-100 dark:hover:bg-dark-surface;
+  }
+  .nav-link-active {
+    @apply text-primary-500 dark:text-primary-400
+           bg-primary-50 dark:bg-primary-500/10
+           shadow-sm;
+  }
+
+  /* === CHAT === */
+  .chat-bubble-user {
+    @apply bg-primary-500 text-white rounded-2xl rounded-br-sm px-4 py-2.5 max-w-[80%] shadow-sm;
+  }
+  .chat-bubble-bot {
+    @apply bg-white dark:bg-dark-card text-gray-800 dark:text-dark-text rounded-2xl rounded-bl-sm px-4 py-2.5 max-w-[80%]
+           border border-gray-100 dark:border-dark-border shadow-sm;
+  }
+
+  /* === ANIMATED COUNTER === */
+  .animate-counter {
+    animation: counter 0.6s ease-out;
+  }
+
+  /* === LOADING SPINNER === */
+  .spinner {
+    @apply w-5 h-5 border-2 border-gray-200 dark:border-gray-600 border-t-primary-500 rounded-full animate-spin;
+  }
+  .spinner-brand {
+    @apply w-8 h-8 border-[3px] border-primary-200 dark:border-primary-900/40 border-t-accent-500 rounded-full animate-spin;
+  }
+
+  /* === CHAT PRICING CARD === */
+  .pricing-card {
+    @apply grid grid-cols-2 gap-2 p-3 rounded-xl bg-gray-50 dark:bg-dark-surface border border-gray-100 dark:border-dark-border mb-2;
+  }
+  .pricing-item {
+    @apply flex flex-col;
+  }
+  .pricing-label {
+    @apply text-xs text-gray-400 dark:text-gray-500;
+  }
+  .pricing-value {
+    @apply text-sm font-semibold text-gray-800 dark:text-gray-200;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Subtle glassmorphism overlay for dark mode cards */
+  .dark .card-glass {
+    background: rgba(30, 30, 30, 0.8);
+    backdrop-filter: blur(20px);
+  }
+}

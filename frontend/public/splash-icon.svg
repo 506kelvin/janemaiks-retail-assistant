@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="720">
+      <stop offset="0%" stop-color="#0047AB"/>
+      <stop offset="100%" stop-color="#002461"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="720" fill="url(#bg)"/>
+  <g transform="translate(640, 300)">
+    <rect x="-120" y="-120" width="240" height="240" rx="48" fill="rgba(255,255,255,0.1)"/>
+    <text x="0" y="0" font-family="Inter, system-ui, sans-serif" font-size="120" font-weight="800" fill="white" text-anchor="middle" dominant-baseline="central" letter-spacing="-2">
+      JM
+    </text>
+  </g>
+  <text x="640" y="460" font-family="Inter, system-ui, sans-serif" font-size="48" font-weight="700" fill="white" text-anchor="middle" opacity="0.9">
+    JaneMaiks
+  </text>
+  <text x="640" y="510" font-family="Inter, system-ui, sans-serif" font-size="24" fill="rgba(255,255,255,0.6)" text-anchor="middle">
+    Retail Assistant
+  </text>
+  <circle cx="1050" cy="180" r="30" fill="#FF6F00" opacity="0.8"/>
+</svg>

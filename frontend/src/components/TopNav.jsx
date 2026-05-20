@@ -1,9 +1,11 @@
-import { Menu, Sun, Moon } from 'lucide-react';
+import { Menu, Sun, Moon, LogOut } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
+import { useAuth } from '../hooks/useAuth';
 import { LogoCompact } from './Logo';
 
 export default function TopNav({ onMenuToggle }) {
   const { dark, toggle } = useTheme();
+  const { logout } = useAuth();
 
   const date = new Date().toLocaleDateString('en-KE', {
     weekday: 'short',
@@ -15,7 +17,6 @@ export default function TopNav({ onMenuToggle }) {
   return (
     <header className="sticky top-0 z-30 bg-white/80 dark:bg-dark-card/80 backdrop-blur-xl border-b border-gray-100 dark:border-dark-border">
       <div className="flex items-center justify-between h-16 px-4 lg:px-6">
-        {/* Left */}
         <div className="flex items-center gap-3">
           <button
             onClick={onMenuToggle}
@@ -34,7 +35,6 @@ export default function TopNav({ onMenuToggle }) {
           </div>
         </div>
 
-        {/* Right */}
         <div className="flex items-center gap-2">
           <button
             onClick={toggle}
@@ -42,6 +42,14 @@ export default function TopNav({ onMenuToggle }) {
             aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
           >
             {dark ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+          <button
+            onClick={logout}
+            className="btn-icon btn-ghost text-gray-400 hover:text-status-low hidden sm:flex"
+            aria-label="Sign out"
+            title="Sign out"
+          >
+            <LogOut size={18} />
           </button>
         </div>
       </div>

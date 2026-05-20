@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Package, MessageSquare, BarChart3, X } from 'lucide-react';
+import { LayoutDashboard, Package, MessageSquare, BarChart3, X, LogOut } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
 import { LogoFull } from './Logo';
 
 const navItems = [
@@ -30,6 +31,8 @@ function NavLink({ to, icon: Icon, label, onClick }) {
 }
 
 export default function Sidebar({ open, onClose }) {
+  const { user, logout } = useAuth();
+
   return (
     <>
       {open && (
@@ -50,7 +53,6 @@ export default function Sidebar({ open, onClose }) {
           ${open ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
         `}
       >
-        {/* Logo */}
         <div className="flex items-center justify-between px-5 h-16 border-b border-gray-100 dark:border-dark-border flex-shrink-0">
           <Link to="/" className="flex items-center gap-2.5 group">
             <LogoFull />
@@ -64,24 +66,35 @@ export default function Sidebar({ open, onClose }) {
           </button>
         </div>
 
-        {/* Navigation */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {navItems.map((item) => (
             <NavLink key={item.to} {...item} onClick={onClose} />
           ))}
         </nav>
 
-        {/* Brand footer */}
-        <div className="px-5 py-4 border-t border-gray-100 dark:border-dark-border flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-50 to-blue-50 dark:from-primary-500/10 dark:to-blue-500/10 flex items-center justify-center">
-              <span className="text-xs font-bold text-primary-500">JM</span>
+        <div className="px-5 py-4 border-t border-gray-100 dark:border-dark-border space-y-3">
+          {user && (
+            <div className="flex items-center gap-3 px-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-50 to-blue-50 dark:from-primary-500/10 dark:to-blue-500/10 flex items-center justify-center">
+                <span className="text-xs font-bold text-primary-500">
+                  {user.name?.charAt(0) || 'U'}
+                </span>
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">
+                  {user.name}
+                </p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 capitalize">{user.role}</p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <p className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">JaneMaiks Retail Assistant</p>
-              <p className="text-xs text-gray-400 dark:text-gray-500">v2.0.0</p>
-            </div>
-          </div>
+          )}
+          <button
+            onClick={logout}
+            className="nav-link w-full text-status-low hover:bg-status-low/5 hover:text-status-low"
+          >
+            <LogOut size={18} />
+            <span>Sign Out</span>
+          </button>
         </div>
       </aside>
     </>

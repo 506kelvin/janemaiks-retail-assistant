@@ -1,15 +1,16 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import inspect, text
+import time
 
 from .config import DEBUG, CORS_ORIGINS
-from .database import engine, Base
-from .routers import products, pricing, chatbot, inventory, analytics
+from .database import engine, Base, get_db
+from .routers import products, pricing, chatbot, inventory, analytics, auth
 from .seed import seed_database
 
 Base.metadata.create_all(bind=engine)
 
-# ---- Migration: add new columns if missing ----
 NEW_COLUMNS = [
     ("package_cost_price", "REAL"),
     ("package_quantity", "INTEGER"),
@@ -41,14 +42,13 @@ try:
             conn.execute(text("ALTER TABLE chat_history ADD COLUMN clarification_state TEXT"))
 except Exception as e:
     print(f"Migration note: {e}")
-# ---- End migration ----
 
 app = FastAPI(
     title="JaneMaiks Retail Assistant API",
-    description="AI-powered retail management system for JaneMaiks — wholesale + retail pricing, inventory, and analytics for Kenyan shops",
+    description="AI-powered retail management system for JaneMaiks",
     version="2.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url="/docs" if DEBUG else None,
+    redoc_url="/redoc" if DEBUG else None,
 )
 
 app.add_middleware(
@@ -64,13 +64,61 @@ app.include_router(pricing.router)
 app.include_router(chatbot.router)
 app.include_router(inventory.router)
 app.include_router(analytics.router)
+app.include_router(auth.router)
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    if not DEBUG:
+        response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @app.on_event("startup")
 def on_startup():
     seed_database()
+    try:
+        db = next(get_db())
+        db.execute(text("SELECT 1"))
+        db.close()
+    except Exception as e:
+        print(f"Database connection check: {e}")
 
 
 @app.get("/api/health")
 def health_check():
-    return {"status": "healthy", "app": "JaneMaiks Retail Assistant", "version": "2.0.0", "debug": DEBUG}
+    db_status = "unknown"
+    try:
+        db = next(get_db())
+        db.execute(text("SELECT 1"))
+        db.close()
+        db_status = "connected"
+    except Exception as e:
+        db_status = f"error: {str(e)}"
+
+    return {
+        "status": "healthy",
+        "app": "JaneMaiks Retail Assistant",
+        "version": "2.0.0",
+        "debug": DEBUG,
+        "database": db_status,
+        "uptime_seconds": round(time.time() - app.state.start_time, 2) if hasattr(app.state, "start_time") else 0,
+    }
+
+
+@app.on_event("startup")
+def set_start_time():
+    app.state.start_time = time.time()
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error", "path": request.url.path},
+    )

@@ -1,9 +1,39 @@
 import axios from 'axios';
 
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+const TIMEOUT = parseInt(import.meta.env.VITE_API_TIMEOUT || '15000', 10);
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
+  timeout: TIMEOUT,
 });
+
+if (import.meta.env.DEV) {
+  console.log('[JaneMaiks API] Base URL:', BASE_URL);
+}
+
+api.interceptors.request.use((config) => {
+  if (import.meta.env.DEV) {
+    console.log(`[JaneMaiks API] ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
+  }
+  return config;
+});
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.code === 'ECONNABORTED') {
+      return Promise.reject(new Error('Request timed out. Please check your connection.'));
+    }
+    if (!error.response) {
+      return Promise.reject(new Error('Unable to reach the server. Please try again.'));
+    }
+    return Promise.reject(error);
+  }
+);
+
+export { api };
 
 export const productApi = {
   list: (params) => api.get('/products/', { params }),

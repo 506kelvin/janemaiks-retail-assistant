@@ -13,9 +13,15 @@ export default defineConfig({
     },
   },
   build: {
+    outDir: 'dist',
+    sourcemap: false,
+    minify: 'esbuild',
     rollupOptions: {
-      input: {
-        main: 'index.html',
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          ui: ['axios', 'lucide-react'],
+        },
       },
     },
   },

@@ -9,14 +9,21 @@ function formatResponse(text) {
     .replace(/\n/g, '<br/>');
 
   html = html.replace(
-    /(📦|📊|💡|🔄|🏷️|💰|⚠️|⚡)\s*/g,
+    /(📦|📊|💡|🔄|🏷️|💰|⚠️|⚡|📈|📉)\s*/g,
     '<span class="inline-block mr-0.5">$1</span>'
   );
 
   html = html.replace(
-    /<br\/><br\/>(📦|📊|💡|🔄|🏷️|💰)\s\*\*(.*?)\*\*:\s\*\*(.*?)\*\*/g,
+    /<br\/><br\/>(💰|📊|📦|📈|📉)\s\*\*(.*?)\*\*:\s(.*?)(?=<br\/>|$)/g,
     (match, emoji, label, value) => {
       return `</p><div class="pricing-card"><div class="pricing-item"><span class="pricing-label">${emoji} ${label}</span><span class="pricing-value">${value}</span></div></div><p class="text-sm markdown-response leading-relaxed">`;
+    }
+  );
+
+  html = html.replace(
+    /•\s\*\*(.*?)\*\*\s—\s(.*?)(?=<br\/>|$)/g,
+    (match, name, detail) => {
+      return `<div class="flex items-center gap-2 py-0.5 text-sm"><span class="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0"></span><span class="text-gray-900 dark:text-dark-text font-medium">${name}</span><span class="text-gray-500">— ${detail}</span></div>`;
     }
   );
 
@@ -24,13 +31,14 @@ function formatResponse(text) {
 }
 
 const SUGGESTIONS = [
+  'What are today\'s sales?',
+  'What sold yesterday?',
+  'Sales summary this week',
+  'Best selling items today',
+  'How much profit from sales today?',
   'How much is Arimis Petroleum Jelly?',
-  'What is the wholesale price of Arimis?',
-  'How much profit per unit on Arimis?',
-  'How much do we buy a dozen at?',
-  'Suggest selling price for this item',
-  'What is the unit cost of cooking oil?',
   'How many sweets are remaining?',
+  'Do you have Casio fx82ES?',
   'Bei gani ya sukari?',
 ];
 
@@ -133,7 +141,7 @@ export default function Chatbot() {
     {
       role: 'bot',
       type: 'normal',
-      text: "👋 **Karibu!** Welcome to **JaneMaiks Retail Assistant**. I'm your AI pricing manager.\n\nI can help with:\n• **Retail prices** — \"How much is Arimis?\"\n• **Wholesale prices** — \"What is the wholesale price?\"\n• **Unit costs** — \"How much do we buy a dozen at?\"\n• **Profit analysis** — \"How much profit per unit?\"\n• **Stock levels** — \"How many sweets remaining?\"\n• **Swahili support** — \"Bei gani ya sukari?\"\n\nHow can I help you at JaneMaiks today?",
+      text: "👋 **Karibu!** Welcome to **JaneMaiks Retail Assistant**. I'm your AI sales & pricing manager.\n\nI can help with:\n• **Sales queries** — \"What sold today?\", \"Yesterday's sales?\"\n• **Best sellers** — \"Which items sold most?\"\n• **Retail prices** — \"How much is Arimis?\"\n• **Wholesale prices** — \"What is the wholesale price?\"\n• **Unit costs** — \"How much do we buy a dozen at?\"\n• **Stock levels** — \"How many sweets remaining?\"\n• **Availability** — \"Do you have Casio fx82ES?\"\n• **Record requests** — I'll ask if you want to log missing items\n• **Swahili support** — \"Bei gani ya sukari?\"\n\nHow can I help you at JaneMaiks today?",
     },
   ]);
   const [input, setInput] = useState('');
@@ -255,7 +263,7 @@ export default function Chatbot() {
             <input
               ref={inputRef}
               className="input-field flex-1"
-              placeholder={hasClarification ? 'Type a number or name to select...' : 'Ask JaneMaiks about prices, stock, profit...'}
+              placeholder={hasClarification ? 'Type a number or name to select...' : 'Ask about sales, prices, stock, or profit...'}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={loading}

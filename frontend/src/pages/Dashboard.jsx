@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Package, AlertTriangle, TrendingUp, ShoppingCart, ArrowRight, MessageSquare, Store } from 'lucide-react';
+import { Package, AlertTriangle, TrendingUp, ShoppingCart, ArrowRight, MessageSquare, Store, DollarSign, ClipboardList } from 'lucide-react';
 import { analyticsApi, inventoryApi } from '../services/api';
 import StatCard from '../components/StatCard';
 import Card, { CardHeader } from '../components/Card';
@@ -103,28 +103,29 @@ export default function Dashboard() {
           onClick={() => navigate('/products')}
         />
         <StatCard
+          icon={DollarSign}
+          label="Today's Sales"
+          value={`KSh ${(data?.today_sales_total || 0).toLocaleString()}`}
+          color="green"
+          trend={`${data?.today_sales_count || 0} transactions today`}
+          trendUp={data?.today_sales_count > 0}
+          onClick={() => navigate('/sales')}
+        />
+        <StatCard
+          icon={TrendingUp}
+          label="Sales Profit"
+          value={`KSh ${Math.round(data?.today_sales_profit || 0).toLocaleString()}`}
+          color="amber"
+          trend={data?.today_sales_profit > 0 ? 'From today sales' : 'No sales profit'}
+          trendUp={data?.today_sales_profit > 0}
+        />
+        <StatCard
           icon={AlertTriangle}
           label="Low Stock Items"
           value={data?.low_stock_count || 0}
           color="red"
           trend={data?.low_stock_count > 0 ? 'Needs attention' : 'All stocked'}
           trendUp={data?.low_stock_count === 0}
-        />
-        <StatCard
-          icon={TrendingUp}
-          label="Est. Daily Profit"
-          value={`KSh ${Math.round(dailyProfit).toLocaleString()}`}
-          color="green"
-          trend={dailyProfit > 0 ? 'Based on actual margins' : 'No profit data'}
-          trendUp={dailyProfit > 0}
-        />
-        <StatCard
-          icon={ShoppingCart}
-          label="Today's Activity"
-          value={data?.today_transactions || 0}
-          color="amber"
-          trend={data?.today_transactions > 0 ? 'Transactions today' : 'No activity yet'}
-          trendUp={data?.today_transactions > 0}
         />
       </div>
 
@@ -178,6 +179,38 @@ export default function Dashboard() {
           )}
         </Card>
       </div>
+
+      {/* Most Requested Missing Items */}
+      {data?.most_requested_items?.length > 0 && (
+        <Card>
+          <CardHeader
+            title="Most Requested Missing Items"
+            subtitle="Products customers ask for that we don't have"
+            action={
+              <Link to="/requested-items" className="text-xs text-primary-500 hover:text-primary-600 font-medium inline-flex items-center gap-1">
+                View All <ArrowRight size={12} />
+              </Link>
+            }
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {data.most_requested_items.slice(0, 6).map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center justify-between p-3 rounded-xl bg-accent-500/5 border border-accent-500/10"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-900 dark:text-dark-text truncate">{item.product_name}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    Requested {item.request_count} time{item.request_count !== 1 ? 's' : ''}
+                    {item.last_requested_at ? ` — Last: ${new Date(item.last_requested_at).toLocaleDateString('en-KE', { month: 'short', day: 'numeric' })}` : ''}
+                  </p>
+                </div>
+                <Badge variant="warning">{item.request_count}</Badge>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* Low Stock Alerts */}
       {lowStock.length > 0 && (

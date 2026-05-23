@@ -73,4 +73,19 @@ export const analyticsApi = {
   dashboard: () => api.get('/analytics/dashboard'),
 };
 
+export const salesApi = {
+  create: (data) => api.post('/sales/', data),
+  today: () => api.get('/sales/today'),
+  history: (page = 1, perPage = 20) => api.get('/sales/history', { params: { page, per_page: perPage } }),
+  get: (id) => api.get(`/sales/${id}`),
+  delete: (id) => api.delete(`/sales/${id}`),
+};
+
+export const requestedItemsApi = {
+  create: (data) => api.post('/requested-items/', data),
+  list: (search = '', sortBy = 'request_count') => api.get('/requested-items/', { params: { search, sort_by: sortBy } }),
+  update: (id, data) => api.put(`/requested-items/${id}`, data),
+  delete: (id) => api.delete(`/requested-items/${id}`),
+};
+
 export default api;

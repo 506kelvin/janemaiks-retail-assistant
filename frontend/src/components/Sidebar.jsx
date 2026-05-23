@@ -1,11 +1,13 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Package, MessageSquare, BarChart3, X, LogOut } from 'lucide-react';
+import { LayoutDashboard, Package, MessageSquare, BarChart3, X, LogOut, ShoppingCart, ClipboardList } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { LogoFull } from './Logo';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/products', icon: Package, label: 'Products' },
+  { to: '/sales', icon: ShoppingCart, label: 'Sales' },
+  { to: '/requested-items', icon: ClipboardList, label: 'Requests' },
   { to: '/chatbot', icon: MessageSquare, label: 'AI Assistant' },
   { to: '/analytics', icon: BarChart3, label: 'Analytics' },
 ];

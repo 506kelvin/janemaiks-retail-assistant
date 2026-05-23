@@ -1,13 +1,25 @@
 import json
 import re
 import uuid
+from datetime import datetime
 from typing import Optional, Tuple
 
 from sqlalchemy.orm import Session
 
-from ..models import Product, Inventory, ChatHistory
+from ..models import Product, Inventory, ChatHistory, RequestedItem
 from .pricing import calculate_retail_price, get_product_pricing
 from .rag import rag_service
+from .sales_query import (
+    parse_date_reference,
+    get_sales_by_date,
+    get_sales_range,
+    get_sales_summary_range,
+    get_top_selling_products,
+    get_sales_profit,
+    format_sales_response,
+    format_sales_range_response,
+    format_top_products_response,
+)
 from .search import (
     rank_products, detect_ambiguity,
     build_clarification_response, build_no_match_response,
@@ -27,6 +39,16 @@ UNIT_COST_KEYWORDS = ["unit cost", "cost price", "how much we buy", "tunanunua",
 PROFIT_KEYWORDS = ["profit", "faida", "margin", "how much profit"]
 PACKAGE_KEYWORDS = ["package", "dozen", "carton", "bundle", "kifurushi"]
 SUGGEST_KEYWORDS = ["suggest", "recommend", "propose", "pendekeza", "suggest selling"]
+DO_YOU_HAVE_KEYWORDS = ["do you have", "do u have", "una", "unayo", "umnayo", "uko na", "available"]
+
+SALES_QUERY_KEYWORDS = [
+    "sales", "sold", "sale", "revenue", "income", "money came in",
+    "transactions", "receipt", "total sales", "daily sales",
+    "items sold", "what sold", "how much have we sold",
+    "selling today", "sold today", "sold yesterday",
+    "sales summary", "sales report", "best selling",
+    "top selling", "slow moving", "profit from sales",
+]
 
 
 def _make_pattern(words: list[str]) -> re.Pattern:
@@ -45,7 +67,10 @@ PAT_STOCK = _make_pattern(["remaining", "stock", "available", "left", "zimebaki"
 PAT_SUPPLIER = _make_pattern(["supplier", "supplier", "from", "came from", "kutoka"])
 PAT_ADD_PRODUCT = _make_pattern(["add", "new product", "register", "ongeza"])
 PAT_SUGGEST = _make_pattern(SUGGEST_KEYWORDS)
+PAT_DO_YOU_HAVE = _make_pattern(DO_YOU_HAVE_KEYWORDS)
+PAT_SALES = _make_pattern(SALES_QUERY_KEYWORDS)
 PAT_SWAHLI = _make_pattern(SWAHILI_PRICE_KEYWORDS + SWAHILI_QUANTITY_KEYWORDS)
+PAT_AFFIRMATIVE = _make_pattern(["yes", "yeah", "sure", "ndiyo", "sawa", "okay", "ok", "record it", "please do", "go ahead"])
 
 
 def _is_swahili(query: str) -> bool:
@@ -54,6 +79,8 @@ def _is_swahili(query: str) -> bool:
 
 def _detect_intent(query: str) -> str:
     q = query.lower()
+    if PAT_SALES.search(q):
+        return "sales_query"
     if PAT_PRICE.search(q):
         if PAT_WHOLESALE.search(q):
             return "wholesale_query"
@@ -74,6 +101,10 @@ def _detect_intent(query: str) -> str:
         return "add_product"
     if PAT_SUGGEST.search(q):
         return "suggest_price"
+    if PAT_DO_YOU_HAVE.search(q):
+        return "do_you_have"
+    if PAT_SALES.search(q):
+        return "sales_query"
     if PAT_GREETING.search(q):
         return "greeting"
     if PAT_HELP.search(q):
@@ -102,6 +133,18 @@ STOP_WORDS = [
     "how much profit on", "profit on", "profit per",
     "package price of", "how much do we buy",
     "suggest selling price for", "suggest price for",
+    "do you have", "do u have", "una", "unayo", "uko na",
+    "umnayo",
+    "sold today", "sold yesterday", "sold",
+    "sales for", "sales of", "sales from", "sales summary",
+    "total sales", "daily sales", "today sales", "yesterday sales",
+    "items sold", "what sold", "what was sold",
+    "how much have we sold", "how much money",
+    "transactions today", "transactions yesterday",
+    "best selling", "top selling", "slow moving",
+    "revenue", "income", "money came in",
+    "this week", "last week", "this month", "last month",
+    "record sale", "record sales",
 ]
 
 
@@ -186,6 +229,24 @@ def _get_clarification_state(session_id: str, db: Session) -> Optional[dict]:
     return None
 
 
+def _get_pending_state(session_id: str, db: Session, state_type: str) -> Optional[dict]:
+    """Retrieve the last pending state of a specific type for a session."""
+    last = (
+        db.query(ChatHistory)
+        .filter(ChatHistory.session_id == session_id, ChatHistory.clarification_state.isnot(None))
+        .order_by(ChatHistory.created_at.desc())
+        .first()
+    )
+    if last and last.clarification_state:
+        try:
+            state = json.loads(last.clarification_state)
+            if state.get("type") == state_type:
+                return state
+        except (json.JSONDecodeError, TypeError):
+            pass
+    return None
+
+
 def _handle_clarification_response(
     query: str, state: dict, db: Session
 ) -> Tuple[Optional[Product], Optional[dict], str]:
@@ -202,7 +263,6 @@ def _handle_clarification_response(
     if not candidates:
         return None, None, ""
 
-    # Try numeric selection: "1", "first", "the first one"
     num_match = re.search(r"^\s*(\d+)\s*$", q)
     if num_match:
         idx = int(num_match.group(1)) - 1
@@ -211,7 +271,6 @@ def _handle_clarification_response(
             if product:
                 return product, {"intent": original_intent, "is_swahili": is_swahili}, original_query
 
-    # Try word-based selection: "first", "second", "third"
     word_to_num = {"first": 0, "second": 1, "third": 2, "fourth": 3, "fifth": 4,
                    "ya kwanza": 0, "ya pili": 1, "ya tatu": 2}
     if q in word_to_num:
@@ -221,7 +280,6 @@ def _handle_clarification_response(
             if product:
                 return product, {"intent": original_intent, "is_swahili": is_swahili}, original_query
 
-    # Try name matching: user types part of product name
     best_product = None
     best_score = 0
     for c in candidates:
@@ -276,9 +334,54 @@ def _smart_find_product(query: str, db: Session):
     if is_ambiguous:
         return None, candidates, True, ranked
 
-    # Single best match
     top_product = candidates[0][0] if candidates else ranked[0][0]
     return top_product, [], False, ranked
+
+
+# ============================================================
+# REQUESTED ITEM HANDLING
+# ============================================================
+
+def _handle_requested_item_suggestion(product_name: str, db: Session) -> str:
+    """Record a requested item when user confirms."""
+    name = product_name.strip()
+    if not name:
+        return "I couldn't record that — the product name was missing."
+
+    existing = db.query(RequestedItem).filter(
+        RequestedItem.product_name.ilike(name)
+    ).first()
+
+    if existing:
+        existing.request_count += 1
+        existing.last_requested_at = datetime.utcnow()
+        db.commit()
+        return f"✅ Noted! **{name}** has been requested **{existing.request_count} time(s)** now. We'll consider stocking it at JaneMaiks."
+    else:
+        item = RequestedItem(product_name=name, request_count=1)
+        db.add(item)
+        db.commit()
+        return f"✅ Got it! **{name}** has been recorded as a requested item. We'll look into stocking it at JaneMaiks."
+
+
+def _build_availability_response(requested_name: str, ranked: list, db: Session) -> str:
+    """Build a response when a product is not found but there are alternatives."""
+    if ranked:
+        alt = ranked[0]
+        alt_product, alt_score, _ = alt
+        if alt_score >= 30:
+            return (
+                f"We don't currently have **{requested_name}** at JaneMaiks, "
+                f"but we do have **{alt_product.name}** instead.\n\n"
+                f"Would you like me to record **{requested_name}** as a requested item? "
+                f"Just say **yes** or **record it**."
+            )
+
+    return (
+        f"I couldn't find **{requested_name}** in our inventory at JaneMaiks.\n\n"
+        f"Would you like me to record it as a requested item? "
+        f"Just say **yes** or **record it**."
+    )
 
 
 # ============================================================
@@ -390,6 +493,58 @@ def _handle_suggest_price(product, is_swahili: bool, db: Session) -> str:
 
 
 # ============================================================
+# SALES QUERY HANDLER
+# ============================================================
+
+def _handle_sales_query(query: str, db: Session) -> str:
+    """
+    Handle a sales-related query by parsing dates and retrieving sales data.
+    """
+    ref = parse_date_reference(query)
+
+    if not ref:
+        return (
+            "I can help with sales queries! Try asking:\n"
+            "- 'What were today's sales?'\n"
+            "- 'What sold yesterday?'\n"
+            "- 'Sales this week'\n"
+            "- 'Best selling items today'"
+        )
+
+    start_date = ref["start_date"]
+    end_date = ref["end_date"]
+    label = ref["label"]
+
+    q = query.lower()
+
+    # Best-selling / top products query
+    if any(w in q for w in ["best selling", "top selling", "sold most", "most popular", "slow moving"]):
+        products = get_top_selling_products(start_date, end_date, db, limit=5)
+        return format_top_products_response(products, label)
+
+    # Profit query
+    if "profit" in q:
+        profit_data = get_sales_profit(start_date, db)
+        if profit_data["total_revenue"] == 0:
+            return f"No sales recorded for **{label}** at JaneMaiks."
+        return (
+            f"**Profit Analysis — {label.capitalize()}**\n\n"
+            f"💰 **Revenue:** KSh {profit_data['total_revenue']:,.2f}\n"
+            f"📊 **Cost:** KSh {profit_data['total_cost']:,.2f}\n"
+            f"📈 **Estimated Profit:** KSh {profit_data['estimated_profit']:,.2f}"
+        )
+
+    # Single date query
+    if start_date == end_date:
+        sales_data = get_sales_by_date(start_date, db)
+        return format_sales_response(sales_data)
+
+    # Range query
+    range_data = get_sales_summary_range(start_date, end_date, db)
+    return format_sales_range_response(range_data)
+
+
+# ============================================================
 # MAIN PROCESSOR
 # ============================================================
 
@@ -417,6 +572,10 @@ def process_chat_query(
             "- Stock levels ('How many sweets remaining?')\n"
             "- Supplier info ('Products from supplier X')\n"
             "- Price suggestions\n"
+            "- Availability checks ('Do you have Casio fx82ES?')\n"
+            "- **Sales queries** ('What sold today?', 'Yesterday sales?')\n"
+            "- **Best sellers** ('Which items sold most?')\n"
+            "- **Sales profit** ('How much profit from sales today?')\n"
             "- Swahili support (e.g., 'Bei gani ya mkate?')\n\n"
             "How can I help you at JaneMaiks today?"
         )
@@ -426,6 +585,13 @@ def process_chat_query(
     if intent == "help":
         response = (
             "Welcome to **JaneMaiks Assistant**. Here's what I can do:\n\n"
+            "**Sales Queries:**\n"
+            "- 'What were today's sales?'\n"
+            "- 'What sold yesterday?'\n"
+            "- 'Sales this week'\n"
+            "- 'Best selling items today'\n"
+            "- 'How much profit from sales today?'\n"
+            "- 'Show me sales for the last 3 days'\n\n"
             "**Price Queries:**\n"
             "- 'How much is white handkerchief?'\n"
             "- 'What is the price of milk?'\n"
@@ -443,6 +609,9 @@ def process_chat_query(
             "- 'How many sweets are remaining?'\n"
             "- 'Stock of cooking oil'\n"
             "- 'Zimebaki ngapi?'\n\n"
+            "**Availability Checks:**\n"
+            "- 'Do you have Casio fx82ES?'\n"
+            "- 'Una sukari?'\n\n"
             "**Supplier Queries:**\n"
             "- 'What products came from supplier X?'\n"
             "- 'Show products from Bidco'\n\n"
@@ -470,26 +639,43 @@ def process_chat_query(
         _save_chat(session_id, query, response, db, products_found)
         return _response(response, session_id, products_found=products_found)
 
+    # ---- SALES QUERY (direct database query, no product search needed) ----
+    if intent == "sales_query":
+        # Try to handle as sales query; if no date reference found, fall through to product search
+        ref = parse_date_reference(query)
+        if ref:
+            response = _handle_sales_query(query, db)
+            _save_chat(session_id, query, response, db)
+            return _response(response, session_id)
+        # Fall through to product search below
+        intent = "general_query"
+
     # ---- CHECK FOR CLARIFICATION FOLLOW-UP ----
-    # If the user is responding to a clarification question
     clarification_state = _get_clarification_state(session_id, db)
     resolved_from_clarification = False
 
     if clarification_state and not selected_product_id:
         resolved_product, resolved_ctx, original_query = _handle_clarification_response(query, clarification_state, db)
         if resolved_product:
-            # The user answered the clarification — process the original intent
             intent = resolved_ctx.get("intent", intent)
             is_swahili = resolved_ctx.get("is_swahili", is_swahili)
             target_product = resolved_product
             resolved_from_clarification = True
 
+    # ---- CHECK FOR REQUESTED ITEM FOLLOW-UP ----
+    pending_request = _get_pending_state(session_id, db, "request_suggestion")
+    if pending_request and PAT_AFFIRMATIVE.search(query.lower()):
+        requested_name = pending_request.get("requested_name", "")
+        if requested_name:
+            response = _handle_requested_item_suggestion(requested_name, db)
+            _save_chat(session_id, query, response, db)
+            return _response(response, session_id)
+        # If no name, fall through to normal processing
+
     # ---- DIRECT PRODUCT SELECTION (from frontend click) ----
     if selected_product_id and not resolved_from_clarification:
         target_product = db.query(Product).filter(Product.id == selected_product_id).first()
         if target_product:
-            # Process with whatever intent we detected on the original query
-            # But we need the original state
             cs = _get_clarification_state(session_id, db)
             if cs:
                 intent = cs.get("intent", intent)
@@ -504,7 +690,6 @@ def process_chat_query(
         # ---- AMBIGUITY DETECTED ----
         if is_ambiguous and target_product is None:
             clarification = build_clarification_response(candidates)
-            # Save clarification state for follow-up
             state = {
                 "candidates": clarification["matches"],
                 "original_query": query,
@@ -521,7 +706,6 @@ def process_chat_query(
 
         # ---- NO MATCH ----
         if not target_product:
-            # Fallback: try semantic search
             semantic_results = rag_service.semantic_search(query, n_results=3)
             if semantic_results:
                 sem_ids = [r["product_id"] for r in semantic_results if r.get("product_id")]
@@ -529,13 +713,28 @@ def process_chat_query(
                     target_product = db.query(Product).filter(Product.id.in_(sem_ids)).first()
 
         if not target_product:
-            response = build_no_match_response(product_name)
-            # Show alternatives from scoring
+            # Build availability response with alternative suggestions
+            response = _build_availability_response(product_name, ranked, db)
+
             if ranked:
                 alt_names = [f"- {p.name}" for p, s, r in ranked[:3]]
-                response += "\n\nDid you mean one of these?\n" + "\n".join(alt_names)
                 products_found = [p.name for p, s, r in ranked[:3]]
-            _save_chat(session_id, query, response, db, products_found)
+                # If it was a "do you have" query, the response already includes suggestion
+                if intent != "do_you_have":
+                    response = build_no_match_response(product_name)
+                    if alt_names:
+                        response += "\n\n**Closest alternatives we have:**\n" + "\n".join(alt_names)
+                    response += (
+                        f"\n\nWould you like me to record **{product_name}** as a requested item? "
+                        f"Just say **yes** or **record it**."
+                    )
+
+            # Save pending request state for follow-up
+            _save_clarification_state(session_id, query, response, db, {
+                "type": "request_suggestion",
+                "requested_name": product_name,
+                "original_query": query,
+            })
             return _response(response, session_id, products_found=products_found)
 
     # ============================================================
@@ -570,6 +769,23 @@ def process_chat_query(
     # ---- PACKAGE QUERY ----
     if intent in ("package_query", "package_price_query"):
         response = _handle_package_query(target_product, db)
+        _save_chat(session_id, query, response, db, products_found)
+        return _response(response, session_id, products_found=products_found)
+
+    # ---- DO YOU HAVE QUERY (product found, just inform) ----
+    if intent == "do_you_have":
+        inv = db.query(Inventory).filter(Inventory.product_id == target_product.id).first()
+        if inv and inv.quantity_available > 0:
+            response = (
+                f"✅ Yes! We have **{target_product.name}** at JaneMaiks.\n"
+                f"📦 Stock: {inv.quantity_available} units\n"
+                f"🏷️ Retail: KSh {target_product.retail_price or 'Ask for price'}"
+            )
+        else:
+            response = (
+                f"⚠️ We have **{target_product.name}** registered, "
+                f"but it's currently out of stock at JaneMaiks."
+            )
         _save_chat(session_id, query, response, db, products_found)
         return _response(response, session_id, products_found=products_found)
 

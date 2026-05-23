@@ -7,6 +7,8 @@ import TopNav from './components/TopNav';
 import QuickActions from './components/QuickActions';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
+import Sales from './pages/Sales';
+import RequestedItems from './pages/RequestedItems';
 import Chatbot from './pages/Chatbot';
 import Analytics from './pages/Analytics';
 import Login from './pages/Login';
@@ -36,6 +38,8 @@ function ProtectedLayout() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/products" element={<Products />} />
+            <Route path="/sales" element={<Sales />} />
+            <Route path="/requested-items" element={<RequestedItems />} />
             <Route path="/chatbot" element={<Chatbot />} />
             <Route path="/analytics" element={<Analytics />} />
           </Routes>

@@ -199,12 +199,10 @@ def seed_database():
             return
 
         for data in SAMPLE_PRODUCTS:
-            # Auto-calculate unit_cost_price
             pkg_cost = data.get("package_cost_price", data["wholesale_price"])
             pkg_qty = data.get("package_quantity", data["quantity_in_package"])
             data["unit_cost_price"] = calculate_unit_cost(pkg_cost, pkg_qty)
 
-            # Auto-calculate suggested_retail_price
             margin = data.get("profit_margin_per_unit") or data.get("profit_per_item")
             if margin is not None:
                 data["suggested_retail_price"] = round(data["unit_cost_price"] + margin, 2)

@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import inspect, text
 
 from .config import DEBUG, CORS_ORIGINS, DATABASE_URL
-from .database import engine, Base, get_db, _is_sqlite
+from .database import engine, Base, get_db
 from .routers import products, pricing, chatbot, inventory, analytics, auth, sales, requested_items
 from .seed import seed_database
 
@@ -35,24 +35,21 @@ CHAT_COLUMNS = [
     ("clarification_state", "TEXT"),
 ]
 
-if DATABASE_URL.startswith("sqlite"):
-    try:
-        inspector = inspect(engine)
-        existing_products = {c["name"] for c in inspector.get_columns("products")}
-        with engine.begin() as conn:
-            for col_name, col_type in NEW_COLUMNS:
-                if col_name not in existing_products:
-                    conn.execute(text(f"ALTER TABLE products ADD COLUMN {col_name} {col_type}"))
+try:
+    inspector = inspect(engine)
+    existing_products = {c["name"] for c in inspector.get_columns("products")}
+    with engine.begin() as conn:
+        for col_name, col_type in NEW_COLUMNS:
+            if col_name not in existing_products:
+                conn.execute(text(f"ALTER TABLE products ADD COLUMN {col_name} {col_type}"))
 
-        existing_chat = {c["name"] for c in inspector.get_columns("chat_history")}
-        with engine.begin() as conn:
-            for col_name, col_type in CHAT_COLUMNS:
-                if col_name not in existing_chat:
-                    conn.execute(text(f"ALTER TABLE chat_history ADD COLUMN {col_name} {col_type}"))
-    except Exception as e:
-        print(f"Legacy migration note: {e}")
-else:
-    logger.info("Skipping inline migrations for PostgreSQL — use alembic instead")
+    existing_chat = {c["name"] for c in inspector.get_columns("chat_history")}
+    with engine.begin() as conn:
+        for col_name, col_type in CHAT_COLUMNS:
+            if col_name not in existing_chat:
+                conn.execute(text(f"ALTER TABLE chat_history ADD COLUMN {col_name} {col_type}"))
+except Exception as e:
+    print(f"Schema migration note: {e}")
 
 app = FastAPI(
     title="JaneMaiks Retail Assistant API",
@@ -94,9 +91,8 @@ async def add_security_headers(request: Request, call_next):
 
 @app.on_event("startup")
 def on_startup():
-    engine_type = "SQLite" if _is_sqlite else "PostgreSQL"
-    logger.info("Starting JaneMaiks API — engine: %s", engine_type)
-    logger.info("Database URL: %s", DATABASE_URL.split("@")[-1] if "@" in DATABASE_URL else DATABASE_URL)
+    logger.info("Starting JaneMaiks API — engine: SQLite")
+    logger.info("Database URL: %s", DATABASE_URL)
 
     seed_database()
 
@@ -120,15 +116,13 @@ def health_check():
     except Exception as e:
         db_status = f"error: {str(e)}"
 
-    engine_type = "SQLite" if _is_sqlite else "PostgreSQL"
-
     return {
         "status": "healthy",
         "app": "JaneMaiks Retail Assistant",
         "version": "2.2.0",
         "debug": DEBUG,
         "database": db_status,
-        "database_engine": engine_type,
+        "database_engine": "SQLite",
         "uptime_seconds": round(time.time() - app.state.start_time, 2) if hasattr(app.state, "start_time") else 0,
     }
 
